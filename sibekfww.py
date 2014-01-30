@@ -121,6 +121,9 @@ if( args.contype == "usb" ):
       fw.listusb() 
       print("\nThere is more than one usb device, you should use option -d to specify one from the list abowe")
       exit(1)
+  if( len(fw.usblist) == 0 ):
+    print("No devices detected")
+    exit(0)
 
 if( args.contype == "ssh" ):
   print("Not implemented yet.")
@@ -139,7 +142,7 @@ fwm.getinfo()
 print("Found device:")
 print("{}\n".format(fwm.info))
 
-if( not args.ls is None):
+if( args.ls ):
   print(fwm.communicate("ls"))
   exit(0)
 
@@ -202,12 +205,12 @@ if( not fwm.getmode() == "LOADER" ):
     try:
       fwm.connect()
     except:
-      print "\nCan't connect to device while swithing to loader mode"
+      print("\nCan't connect to device while swithing to loader mode")
       raise
   fwm.getinfo()
 
 if( not fwm.getmode() == "LOADER" ):
-  print "\nCan't switch to loader mode. You can try do it mannualy by softpart command"
+  print("\nCan't switch to loader mode. You can try do it mannualy by softpart command")
   exit(1)
 
 if(not startmode == "LOADER"):
