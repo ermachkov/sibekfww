@@ -35,15 +35,22 @@ class SibekFWManager(SibekFW):
     res = p.findall(self.info)[0]
     return(res)
 
+  def getcksum(self,filename):
+    crc = self.communicate("cksum {}".format(filename))
+    crc = crc.split(" ")
+    return(crc[0])
+
   def cksum(self,filename):
     p = subprocess.Popen("cksum {}".format(filename),shell=True,stdin=subprocess.PIPE,stdout=subprocess.PIPE)                                                     
     out = p.communicate()
     while p.poll() is None:
       time.sleep(0.5)  
     if( p.poll() == 0):
-      return(out[0])
+      crc = out[0]
+      crc = crc.split(" ")
+      return(crc[0])
     else:
-      print("Unexpected error: Normalize with sox return an error")
+      print("Can't cksum file")
       exit(1)
 
   def communicate(self,str,timeout=1):
@@ -71,11 +78,12 @@ class SibekFWManager(SibekFW):
     return(self.fw.communicate(str,timeout))
 
   def sendfile(self,filename,data):
-    mes = self.communicate("cat< {} {}".format(filename,len(data)))
+    crc = self.cksum(filename)
+    mes = self.communicate("cat< {} {} {}".format(filename,len(data),crc))
     if(mes == "Ready to file receiveance..."):
       self.writeb(data)
       mes = self.read()
-      if( mes == "file received" ):
+      if( mes == "file received, CRC OK" ):
         return(0)
       else:
         print(mes)
@@ -85,8 +93,25 @@ class SibekFWManager(SibekFW):
       return(1)
 
   def receivefile(self,filename):
+    fcrc = self.getcksum(filename)
     self.write("cat> {}".format(filename))
-    return(self.readb())
+    file = self.readb()
+    p = subprocess.Popen("cksum",shell=True,stdin=subprocess.PIPE,stdout=subprocess.PIPE)
+    out = p.communicate(input=file)
+    while p.poll() is None:
+      time.sleep(0.5)
+    if( p.poll() == 0):
+      crc = out[0]
+      crc = crc.split(" ")
+      if(crc[0] == fcrc):
+        return(file)
+      else:
+        print("File cksum incorrect. Please try again")
+        exit(1)
+    else:
+      print("Can't cksum file")
+      exit(1)
+    
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-l', help='list usb devices', action="store_true")
@@ -97,8 +122,8 @@ parser.add_argument('-u', help='user for ssh', metavar="user", dest="user")
 parser.add_argument('-p', help='password for ssh', metavar="pass", dest="pass")
 parser.add_argument('--ls', help='list files on device', action="store_true")
 
-parser.add_argument('-df', metavar="filename", help='Download file')
-parser.add_argument('-uf', metavar="filename", help='Upload file')
+parser.add_argument('--df', metavar="filename", help='Download file')
+parser.add_argument('--uf', metavar="filename", help='Upload file')
 
 args = parser.parse_args()
 
@@ -230,13 +255,4 @@ if ( fwm.sendfile("fware.hex",data) ):
   exit(1)
 print("OK")
   
-crc = fwm.cksum(filename)
-
-print("Sending fware.crc..."),
-if ( fwm.sendfile("fware.crc",crc) ):
-  print("error")
-  print("Can't send file to device")
-  exit(1)
-print("OK")
-
 print(fwm.communicate("writehware",10))
