@@ -53,6 +53,19 @@ class SibekFWManager(SibekFW):
       print("Can't cksum file")
       exit(1)
 
+  def cksumraw(self,data):
+    p = subprocess.Popen("cksum",shell=True,stdin=subprocess.PIPE,stdout=subprocess.PIPE)
+    out = p.communicate(input=data)
+    while p.poll() is None:
+      time.sleep(0.5)
+    if( p.poll() == 0 ):
+      crc = out[0]
+      crc = crc.split(" ")
+      return(crc[0])
+    else:
+      print("Can't cksum file")
+      exit(1)
+
   def communicate(self,str,timeout=1):
     return self.fw.communicate(str,timeout=1)
 
@@ -78,7 +91,7 @@ class SibekFWManager(SibekFW):
     return(self.fw.communicate(str,timeout))
 
   def sendfile(self,filename,data):
-    crc = self.cksum(filename)
+    crc = self.cksumraw(data)
     mes = self.communicate("cat< {} {} {}".format(filename,len(data),crc))
     if(mes == "Ready to file receiveance..."):
       self.writeb(data)
@@ -93,25 +106,14 @@ class SibekFWManager(SibekFW):
       return(1)
 
   def receivefile(self,filename):
-    fcrc = self.getcksum(filename)
+    crc = self.getcksum(filename)
     self.write("cat> {}".format(filename))
     file = self.readb()
-    p = subprocess.Popen("cksum",shell=True,stdin=subprocess.PIPE,stdout=subprocess.PIPE)
-    out = p.communicate(input=file)
-    while p.poll() is None:
-      time.sleep(0.5)
-    if( p.poll() == 0):
-      crc = out[0]
-      crc = crc.split(" ")
-      if(crc[0] == fcrc):
+    if(self.cksumraw(file) == crc):
         return(file)
-      else:
-        print("File cksum incorrect. Please try again")
-        exit(1)
     else:
-      print("Can't cksum file")
-      exit(1)
-    
+      print("File cksum incorrect. Please try again")
+      exit(1)    
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-l', help='list usb devices', action="store_true")
