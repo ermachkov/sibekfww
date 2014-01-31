@@ -18,7 +18,11 @@ class SibekFWManager(SibekFW):
 
   def getmode(self):
     p = re.compile("^([A-Z]+)\smode")
-    res = p.findall(self.info)[0]
+    try:
+      res = p.findall(self.info)[0]
+    except:
+      print("Can't get device mode. info: {}"+self.info)
+      raise
     return(res)
 
   def getname(self):
